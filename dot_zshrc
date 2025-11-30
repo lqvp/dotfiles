@@ -1,48 +1,112 @@
-#
-# ~/.bashrc
-#
+# =============================================================================
+# Environment Variables & PATH
+# =============================================================================
 
-# If not running interactively, don't do anything
-[[ $- != *i* ]] && return
+# Language, Locale Settings
+export LANG=ja_JP.UTF-8
 
-alias ls='ls --color=auto'
-alias grep='grep --color=auto'
-PS1='[\u@\h \W]\$ '
+# XDG Data Dirs
+export XDG_DATA_DIRS="/var/lib/flatpak/exports/share:/home/m/.local/share/flatpak/exports/share:$XDG_DATA_DIRS"
 
-source /usr/share/nvm/init-nvm.sh
+# PATHs
+typeset -U path PATH # Remove duplicates
+path=(
+    "$HOME/.local/bin"
+    "$HOME/.cargo/bin"
+    "$HOME/.deno/bin"
+    "$(go env GOPATH)/bin"
+    "$path[@]"
+)
+export PATH
 
-eval "$(starship init zsh)"
+# pnpm setup
+export PNPM_HOME="/home/m/.local/share/pnpm"
+case ":$PATH:" in
+  *":$PNPM_HOME:"*) ;;
+  *) export PATH="$PNPM_HOME:$PATH" ;;
+esac
 
-export DOCKER_HOST=unix://$XDG_RUNTIME_DIR/docker.sock
+# =============================================================================
+# Zinit
+# =============================================================================
 
-# zshrc
-autoload -Uz compinit promptinit
+# Zinit Installation (if not already installed)
+ZINIT_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/zinit/zinit.git"
+if [[ ! -f "$ZINIT_HOME/zinit.zsh" ]]; then
+    print -P "%F{33} %F{220}Installing %F{33}ZDHARMA-CONTINUUM%F{220} Initiative Plugin Manager (%F{33}zdharma-continuum/zinit%F{220})…%f"
+    command mkdir -p "$(dirname $ZINIT_HOME)" && command chmod g-rwX "$(dirname $ZINIT_HOME)"
+    command git clone https://github.com/zdharma-continuum/zinit "$ZINIT_HOME" && \
+        print -P "%F{33} %F{34}Installation successful.%f%b" || \
+        print -P "%F{160} The clone has failed.%f%b"
+fi
+
+source "$ZINIT_HOME/zinit.zsh"
+autoload -Uz _zinit
+(( ${+_comps} )) && _comps[zinit]=_zinit
+
+# Plugins
+zinit light zsh-users/zsh-autosuggestions     # autosuggestions
+zinit light zsh-users/zsh-syntax-highlighting # syntax highlighting
+zinit load azu/ni.zsh                         # npm/yarn/pnpm wrapper
+
+# =============================================================================
+# history, completion settings
+# =============================================================================
+
+# History settings
+HISTFILE="$HOME/.zsh_history"
+HISTSIZE=10000
+SAVEHIST=10000
+setopt SHARE_HISTORY          # Share history across tabs
+setopt HIST_IGNORE_DUPS       # Do not record consecutive duplicate commands
+setopt HIST_IGNORE_ALL_DUPS   # Remove older duplicate history entries
+setopt HIST_IGNORE_SPACE      # Do not record commands that start with space
+setopt HIST_REDUCE_BLANKS     # Remove superfluous blanks
+
+# Completion initialization
+autoload -Uz compinit
 compinit
-promptinit
+
+# Completion behavior settings
+zstyle ':completion:*' matcher-list 'm:{a-z}={A-Z}' # Ignore case
+zstyle ':completion:*' menu select                  # Select completion candidates with arrow keys
+
+# =============================================================================
+# Keybindings
+# =============================================================================
+
+bindkey -e # Emacs key bindings (default)
 
 autoload -Uz up-line-or-beginning-search down-line-or-beginning-search
 zle -N up-line-or-beginning-search
 zle -N down-line-or-beginning-search
 
+# bind Up/Down arrow keys to search history based on current input
 [[ -n "${key[Up]}"   ]] && bindkey -- "${key[Up]}"   up-line-or-beginning-search
 [[ -n "${key[Down]}" ]] && bindkey -- "${key[Down]}" down-line-or-beginning-search
 
+# other keybindings
+bindkey "^[[1;5C" forward-word
+bindkey "^[[1;5D" backward-word
 bindkey "^[[3~" delete-char
+bindkey '^[[3;3~' kill-word
 
-### Added by Zinit's installer
-if [[ ! -f $HOME/.local/share/zinit/zinit.git/zinit.zsh ]]; then
-    print -P "%F{33} %F{220}Installing %F{33}ZDHARMA-CONTINUUM%F{220} Initiative Plugin Manager (%F{33}zdharma-continuum/zinit%F{220})…%f"
-    command mkdir -p "$HOME/.local/share/zinit" && command chmod g-rwX "$HOME/.local/share/zinit"
-    command git clone https://github.com/zdharma-continuum/zinit "$HOME/.local/share/zinit/zinit.git" && \
-        print -P "%F{33} %F{34}Installation successful.%f%b" || \
-        print -P "%F{160} The clone has failed.%f%b"
-fi
+# =============================================================================
+# Aliases
+# =============================================================================
 
-source "$HOME/.local/share/zinit/zinit.git/zinit.zsh"
-autoload -Uz _zinit
-(( ${+_comps} )) && _comps[zinit]=_zinit
-### End of Zinit's installer chunk
+alias ls='ls --color=auto'
+alias grep='grep --color=auto'
 
-zinit light zsh-users/zsh-autosuggestions # Suggest
-zinit light zsh-users/zsh-syntax-highlighting # 構文ハイライト
+# =============================================================================
+# etc
+# =============================================================================
 
+# Arch Linux NVM package
+[ -f /usr/share/nvm/init-nvm.sh ] && source /usr/share/nvm/init-nvm.sh
+
+# Starship Prompt
+eval "$(starship init zsh)"
+
+# Kiro Terminal Integration
+[[ "$TERM_PROGRAM" == "kiro" ]] && . "$(kiro --locate-shell-integration-path zsh)"
